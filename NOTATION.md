@@ -34,6 +34,22 @@ Every symbol, metric, and named operation in this repository, defined once. Cros
 
 SmolLM2's inner width is 576 (and 1536), which is divisible by Q4_0/Q8_0's 32-block but not by Q4_K's 256-block. The quantizer therefore reports "N of 272 tensors required fallback quantization" — the embedding and attention tensors silently drop to a coarser type. That is the real-world instance of the earlier studies' granularity result, now measured at file-build time.
 
+
+
+## Study 4 Notations (closed loop)
+
+| Symbol | Meaning |
+|---|---|
+| `C1`–`C7` | Verdict markers from Study 4 loop closure: C1=F16 drift near zero, C2=Q4 structured drift, C3=Q8_0 intermediate, C4=loop closes, C5=mean drift ≤0.5, C6=KL monotonic with quant, C7=Q4_K_M max flip |
+| `block-divisibility rule` | Q4_K_M honesty requires model width ÷ 256 ∈ ℤ: 1.7B (2048÷256=8 ✅), 135M/360M (not ÷256 → fallbacks) |
+| `served drift` | `KL(p_q_served, p_1_ref)` on fixed passage; compared against simulated quantization drift from Studies 1–3 |
+| `loop-closed` | All four studies form a closed analytical chain: artifact → serving → KV budget → served drift validation |
+
+The block-divisibility rule from Study 1 is the key transferable concept: it predicts when Q4_K_M will produce honest arithmetic. Study 2 established the C1–C4 verdicts on tok/s and load time. Study 3 established the KV-budget regime (never overtakes weights at n_ctx=2048/4096). Study 4 confirmed that the simulated drift verdicts survive contact with real GGUF served arithmetic, with all 7 verdicts (C1–C7) holding on served logits.
+
+**Verdict marker legend**: `✅ Holds` = verdict confirmed on served arithmetic; `❌ Reversed` = verdict failed on served data.
+
+
 ## Named operations
 
 - **The pipeline** - HF safetensors -> F16 GGUF (official converter, vendored at the pinned llama.cpp commit) -> Q8_0/Q4_K/Q4_0 (`llama_model_quantize`) -> served (`Llama(...)`).
