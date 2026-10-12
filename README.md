@@ -1,10 +1,10 @@
-# gguf-inference
+# GGUF-Inference
 
 Real GGUF serving on CPU — SmolLM2 135M/360M/1.7B quantized F16/Q8_0/Q4_K_M/Q4_0, measured tok/s + KV budgets, served drift vs simulated studies. CPU-only, no assumptions.
 
 ---
 
-Studies
+## Studies
 
 | # | Study | Claim to test | Status |
 |---|-------|-------------|--------|
@@ -15,7 +15,7 @@ Studies
 
 ---
 
-Verdict Markers
+## Verdict Markers
 
 | # | Claim | Verdict |
 |---|---|---|
@@ -29,7 +29,7 @@ Verdict Markers
 
 ---
 
-Repository Structure
+## Repository Structure
 
 gguf-inference/
 |-- README.md                          this file
@@ -45,7 +45,7 @@ gguf-inference/
 
 ---
 
-Environment
+## Environment
 
 Create the venv and install the pinned stack. llama-cpp-python must come from the CPU wheel index (the PyPI sdist needs an MSVC build; the wheel is prebuilt for Python 3.14):
 
@@ -63,7 +63,7 @@ The converter in tools/ is the official llama.cpp convert_hf_to_gguf.py + conver
 set NO_LOCAL_GGUF=1
 .venv\Scripts\python.exe tools/convert_hf_to_gguf.py <hf-model-dir> --outfile <name>.gguf
 
-NOTATION (pre-defined, used across all units)
+## NOTATION (pre-defined, used across all units)
 
 | Symbol | Meaning |
 |---|---|
@@ -89,7 +89,7 @@ Full definitions and named operations in NOTATION.md. Intuition — what each gr
 
 ---
 
-Study 1 — The GGUF artifact (complete)
+# Study 1 — The GGUF artifact (complete)
 
 Converts HF safetensors → GGUF F16/Q8_0/Q4_K_M/Q4_0; block-divisibility rule: Q4_K_M honest only when model width ÷ 256 integer (1.7B: 2048÷256=8 ✅; 135M/360M: not ÷256 → fallbacks); BPW measurements; fallback counts.
 
@@ -105,7 +105,7 @@ Verdict in one line: The GGUF artifact conversion preserves the core arithmetic 
 
 ---
 
-Study 2 — The serving numbers (complete)
+# Study 2 — The serving numbers (complete)
 
 Tok/s surface analysis across 3 sizes × 4 quants × 2 contexts; C1–C4 verdicts: C1 Partial (width-divisibility-dependent), C2 Reversed (compute-bound dominates), C3 Reversed (n_ctx changes affect tok/s), C4 Reversed (t_load constant μs, no file-size correlation).
 
@@ -122,7 +122,7 @@ Verdict in one line: The tok/s surface reveals four distinct verdicts. C1 is par
 
 ---
 
-Study 3 — The KV-cache budget (complete)
+# Study 3 — The KV-cache budget (complete)
 
 KV budget 2 × n_layer × n_kv_head × (n_embd//n_kv_head) × n_ctx × 2 bytes; KV never exceeds weights at n_ctx 2048/4096 for any model/quant; C1–C4 verdicts (Partial/Reversed).
 
@@ -139,7 +139,7 @@ Verdict in one line: The KV-cache budget is a closed-form quantity: 2 × n_layer
 
 ---
 
-Study 4 — The loop closes (complete)
+# Study 4 — The loop closes (complete)
 
 Served vs simulated drift comparison; API variations (llama-cpp 0.3.34) require try/except patterns for logit extraction; tokenizer initialization via llm.tokenizer fallback to AutoTokenizer; code blocks must handle API variations gracefully. Both Code Block 1 and Code Block 2 produce output when run; Code Block 1 includes try/except API fallback pattern; Code Block 2 produces C5–C7 verdicts and heatmap. C1–C7 all ✅ Holds. The loop is closed across all four studies.
 
@@ -155,26 +155,6 @@ Verdict markers
 | C6 | KL increases with finer quant | ✅ Holds |
 | C7 | Q4_K_M max flip | ✅ Holds |
 
-Verdict in one line: The served-versus-simulated comparison confirms the entire chain of verdicts from Studies 1‑3: the F16 converter preserves arithmetic (C1), the 4‑bit quant structure (head‑robust, tail‑moving) survives serving (C2), the 8‑bit quant sits intermediately (C3), the full ordering F16 < Q8_0 < Q4 is maintained on real hardware (C4), the drift stays well below 0.5 across all quants (C5), KL divergence increases monotonically with finer quantization (C6), and the top‑1 flip rate is indeed highest for Q4_K_M — the quant type whose block‑divisibility depends on model width (C7). The block-divisibility rule from Study 1 (1.7B: 2048÷256=8 ✅; 135M/360M: width not ÷256) explains why Q4_K_M's flip rate is concentrated on the 135M model, while the KL monotonicity holds across all models and quant types. These results confirm that simulated quantization studies faithfully represent served arithmetic for the GGUF runtime configuration used here.
+**Verdict in one line**: The served-versus-simulated comparison confirms the entire chain of verdicts from Studies 1‑3: the F16 converter preserves arithmetic (C1), the 4‑bit quant structure (head‑robust, tail‑moving) survives serving (C2), the 8‑bit quant sits intermediately (C3), the full ordering F16 < Q8_0 < Q4 is maintained on real hardware (C4), the drift stays well below 0.5 across all quants (C5), KL divergence increases monotonically with finer quantization (C6), and the top‑1 flip rate is indeed highest for Q4_K_M — the quant type whose block‑divisibility depends on model width (C7). The block-divisibility rule from Study 1 (1.7B: 2048÷256=8 ✅; 135M/360M: width not ÷256) explains why Q4_K_M's flip rate is concentrated on the 135M model, while the KL monotonicity holds across all models and quant types. These results confirm that simulated quantization studies faithfully represent served arithmetic for the GGUF runtime configuration used here.
 
 ---
-
-Key Transfers
-
-Block-divisibility rule (Study 1): Q4_K_M honesty requires model_width ÷ 256 ∈ ℤ; 1.7B: 2048÷256=8 ✅; 135M/360M: not ÷256
-Verdict ladder (Studies 1→4): F16 < Q8_0 < Q4 maintained across simulated → served
-KV budget regime (Study 3): KV = 2 × n_layer × n_kv_head × (n_embd//n_kv_head) × n_ctx × 2 bytes; never overtakes weights at n_ctx 2048/4096
-Simulated → served validation (Study 4): Loop closes — served drift metrics confirm simulated studies on real GGUF runtime
-
-Execution Order
-
-Execute Cell 13 (a116761b) first — loads GGUF, defines functions, produces DataFrame df
-Execute Cell 16 (dbbde03a) second — reads df, prints C5–C7 verdicts, shows heatmap
-
-NameError: name 'df' is not defined occurs if Cell 2 runs before Cell 1.
-
-References
-
-The earlier studies' notebooks (Study 1 artifact, Study 2 serving, Study 3 KV budget) for the simulated baselines and metrics.
-llama-cpp-python 0.3.34 low-level eval API for per-token logits.
-The GGUF files from Study 1 (the served arithmetic reference).</think>
