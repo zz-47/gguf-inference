@@ -1,10 +1,10 @@
-# gguf-inference
+# GGUF-inference
 
 Real GGUF serving on CPU — SmolLM2 135M/360M/1.7B quantized F16/Q8_0/Q4_K_M/Q4_0, measured tok/s + KV budgets, served drift vs simulated studies. CPU-only, no assumptions.
 
 ---
 
-Studies
+# Studies
 
 | # | Study | Claim to test | Status |
 |---|-------|-------------|--------|
@@ -29,7 +29,7 @@ Verdict Markers (Study 4)
 
 ---
 
-Repository Structure
+# Repository Structure
 
 gguf-inference/
 |-- README.md                          this file
@@ -46,7 +46,7 @@ gguf-inference/
 
 ---
 
-Environment
+# Environment
 
 Create the venv and install the pinned stack. llama-cpp-python must come from the CPU wheel index (the PyPI sdist needs an MSVC build; the wheel is prebuilt for Python 3.14):
 
@@ -65,7 +65,7 @@ set NO_LOCAL_GGUF=1
 
 After conversion, quantize to the other types using the quantization rig in Study 1 (Q8_0 ftype 7, Q4_K_M ftype 15, Q4_0 ftype 2).
 
-NOTATION (pre-defined, used across all units)
+# NOTATION
 
 | Symbol | Meaning |
 |---|---|
@@ -91,7 +91,7 @@ Full definitions and named operations in NOTATION.md. Intuition — what each gr
 
 ---
 
-Study 1 — The GGUF artifact (complete)
+# Study 1 — The GGUF artifact 
 
 Converts HF safetensors → GGUF F16/Q8_0/Q4_K_M/Q4_0; block-divisibility rule: Q4_K_M honest only when model width ÷ 256 integer (1.7B: 2048÷256=8 ✅; 135M/360M: not ÷256 → fallbacks); BPW measurements; fallback counts.
 
@@ -107,7 +107,7 @@ Verdict in one line: The GGUF artifact conversion preserves the core arithmetic 
 
 ---
 
-Study 2 — The serving numbers (pending clean re-run)
+# Study 2 — The serving numbers
 
 Tok/s surface analysis across 3 sizes × 4 quants × 2 contexts. C1–C3 are pending a clean re-run due to a timing bug in the benchmark code (tok/s values are physically impossible: ~178 million tokens/second). C4 (load time) is valid: t_load is constant ~2–4 μs across all models/quants, showing no file-size correlation in this environment.
 
@@ -124,7 +124,7 @@ Verdict in one line: The original tok/s values (~178M tok/s) were invalid due to
 
 ---
 
-Study 3 — The KV-cache budget (complete)
+# Study 3 — The KV-cache budget 
 
 KV budget 2 × n_layer × n_kv_head × (n_embd//n_head) × n_ctx × 2 bytes; KV never exceeds weights at n_ctx 2048/4096 for any model/quant; C1–C3 hold, C4 rejected (KV never dominates at these context lengths).
 
@@ -141,7 +141,7 @@ Verdict in one line: The corrected closed-form formula uses `d_head = n_embd // 
 
 ---
 
-Study 4 — The loop closes (complete)
+# Study 4 — The loop closes 
 
 Served vs simulated drift comparison. Code loads F16/Q8_0/Q4_0/Q4_K_M GGUF files, extracts logits on a fixed passage, computes KL/drift/top1-flip metrics against the F16 reference, and evaluates C5–C7 verdicts. C1–C4 are confirmed (F16 preserved, Q4 drift real, Q8_0 intermediate, quant ladder maintained); C5–C7 are rejected (4-bit drift exceeds 0.5, KL not monotonic, Q4_0 has higher flip than Q4_K_M).
 
@@ -161,7 +161,7 @@ Verdict in one line: The served-versus-simulated comparison closes the loop acro
 
 ---
 
-Key Transfers
+# Key Transfers
 
 Block-divisibility rule (Study 1): Q4_K_M honesty requires model_width ÷ 256 ∈ ℤ; 1.7B: 2048÷256=8 ✅; 135M/360M: not ÷256
 Verdict ladder (Studies 1→4): F16 < Q8_0 < Q4 maintained across simulated → served (C1–C4 hold)
@@ -169,13 +169,13 @@ KV budget regime (Study 3): KV = 2 × n_layer × n_kv_head × (n_embd//n_head) �
 Simulated → served validation (Study 4): Loop closes — served drift metrics confirm the quant ladder (F16 < Q8_0 < Q4); simple monotonicity (C5–C7) does not hold
 CPU tok/s regime (Study 2): 67–112 tok/s (135M), 25–45 tok/s (360M), 6–11 tok/s (1.7B); Q4_0 ~1.5× faster than F16
 
-Execution Order
+# Execution Order
 
 Study 4 notebook: Execute the first code cell (id f20c2163) to load GGUF files, extract logits, and build the DataFrame df. Then execute the second code cell (id dbbde03a) to compute C5–C7 verdicts and display the heatmap.
 
 Study 3 notebook: Execute the budget-rig code cell (id c03b3f71) to load each model/quant/n_ctx combination, parse the loader's KV buffer size, and build the closed-form table. Then execute the crossover cell (id b23116ed).
 
-References
+# References
 
 The earlier studies' notebooks (Study 1 artifact, Study 2 serving, Study 3 KV budget) for the simulated baselines and metrics.
 llama-cpp-python 0.3.34 low-level eval API for per-token logits.
